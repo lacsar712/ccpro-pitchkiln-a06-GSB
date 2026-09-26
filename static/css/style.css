@@ -543,6 +543,36 @@ body {
 .btn-ghost:hover { border-color: var(--cinder); color: var(--ink); }
 
 /* —— resin feed —— */
+.recheck-rule {
+  background: var(--soot-2);
+  border: 1px solid #3f342a;
+  border-left: 3px solid var(--ember);
+  padding: 0.85rem 1rem;
+  margin-bottom: 1rem;
+  max-width: 720px;
+}
+
+.recheck-rule h2 {
+  margin: 0 0 0.5rem;
+  font-size: 0.9rem;
+  color: var(--cinder);
+  letter-spacing: 0.05em;
+}
+
+.recheck-rule ul {
+  margin: 0;
+  padding-left: 1.1rem;
+  font-size: 0.8rem;
+  color: var(--steel);
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.recheck-rule strong { color: var(--ink); }
+
+.recheck-feed { max-width: 720px; }
+
 .feed-layout {
   display: grid;
   grid-template-columns: minmax(240px, 320px) 1fr;

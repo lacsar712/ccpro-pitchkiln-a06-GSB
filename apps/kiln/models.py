@@ -107,3 +107,34 @@ class SoftPointProbe(models.Model):
 
     def __str__(self):
         return f"{self.softPointC}℃ by {self.samplerName}"
+
+
+class SoftPointRecheck(models.Model):
+    """软化复核：探针之外的出胶复核链，按值守内复核号成链。"""
+
+    run = models.ForeignKey(
+        CookRun,
+        on_delete=models.CASCADE,
+        related_name="rechecks",
+        verbose_name="值守",
+    )
+    recheckNo = models.PositiveIntegerField("复核号")
+    softPointC = models.DecimalField("复核软化点(℃)", max_digits=6, decimal_places=2)
+    checkedAt = models.DateTimeField("复核时刻")
+    checkerName = models.CharField("复核人", max_length=80)
+
+    class Meta:
+        ordering = ["recheckNo", "id"]
+        verbose_name = "软化复核"
+        verbose_name_plural = "软化复核"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["run", "recheckNo"], name="uniq_recheck_no_per_run"
+            ),
+            models.CheckConstraint(
+                check=models.Q(recheckNo__gte=1), name="recheck_no_gte_1"
+            ),
+        ]
+
+    def __str__(self):
+        return f"复核#{self.recheckNo} {self.softPointC}℃ by {self.checkerName}"

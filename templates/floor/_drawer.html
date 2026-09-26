@@ -54,6 +54,35 @@
       <button type="submit" class="btn-ember">写入探针</button>
     </form>
   </section>
+
+  <section class="drawer-block">
+    <h3>软化复核链（{{ rechecks|length }} 条）</h3>
+    <ol class="probe-timeline">
+      {% for r in rechecks %}
+      <li class="{% if r.softPointC <= 95 %}ok{% else %}hot{% endif %}">
+        <span class="mono temp">{{ r.softPointC }}℃</span>
+        <span class="when">#{{ r.recheckNo }} · {{ r.checkedAt|date:"m-d H:i" }}</span>
+        <span class="who">{{ r.checkerName }}</span>
+      </li>
+      {% empty %}
+      <li class="empty">尚无复核 — 出胶须从 1 起连续 ≥3 条、相邻差 ≤4℃</li>
+      {% endfor %}
+    </ol>
+  </section>
+
+  <section class="drawer-block">
+    <h3>登记复核</h3>
+    <p class="hint">复核号从 1 起、同值守内唯一；已收灶值守拒绝登记。</p>
+    <form method="post" action="{% url 'add_recheck' hearth.pk %}"
+          class="stack-form"
+          hx-post="{% url 'add_recheck' hearth.pk %}"
+          hx-target="#hearth-drawer"
+          hx-swap="innerHTML">
+      {% csrf_token %}
+      {{ recheck_form.as_p }}
+      <button type="submit" class="btn-ember">写入复核</button>
+    </form>
+  </section>
   {% else %}
   <section class="drawer-block">
     <h3>开新值守</h3>
@@ -72,7 +101,7 @@
 
   <section class="drawer-block">
     <h3>切换相位</h3>
-    <p class="hint">进入「出胶」须当前值守至少一条探针 ≤95℃。</p>
+    <p class="hint">进入「出胶」双重门槛：① 当前值守至少一条探针 ≤95℃；② 软化复核链齐 — 复核号从 1 起连续 ≥3 条、相邻复核软化点差 ≤4℃、最新复核时刻晚于最新探针。通过后最新复核软化点会再落一条探针。</p>
     <form method="post" action="{% url 'change_phase' hearth.pk %}"
           class="stack-form"
           hx-post="{% url 'change_phase' hearth.pk %}"

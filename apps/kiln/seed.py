@@ -3,11 +3,11 @@ from decimal import Decimal
 from django.contrib.auth import get_user_model
 from django.utils import timezone
 
-from .models import CookRun, FireHearth, ResinLot, SoftPointProbe
+from .models import CookRun, FireHearth, ResinLot, SoftPointProbe, SoftPointRecheck
 
 
 def ensure_seed_data():
-    """幂等种子：账号 + 来脂批 / 灶台 / 值守 / 探针。"""
+    """幂等种子：账号 + 来脂批 / 灶台 / 值守 / 探针 / 复核。"""
     User = get_user_model()
 
     if not User.objects.filter(username="admin").exists():
@@ -90,6 +90,27 @@ def ensure_seed_data():
         softPointC=Decimal("96.20"),
         samplerName="值守周磊",
     )
+    # 探针已压到 ≤95℃，但复核仅两条 —— 演示「链未满三条」挡出胶
+    SoftPointProbe.objects.create(
+        run=run1,
+        sampledAt=now - timezone.timedelta(minutes=40),
+        softPointC=Decimal("94.50"),
+        samplerName="值守周磊",
+    )
+    SoftPointRecheck.objects.create(
+        run=run1,
+        recheckNo=1,
+        checkedAt=now - timezone.timedelta(minutes=30),
+        softPointC=Decimal("94.20"),
+        checkerName="复核周磊",
+    )
+    SoftPointRecheck.objects.create(
+        run=run1,
+        recheckNo=2,
+        checkedAt=now - timezone.timedelta(minutes=15),
+        softPointC=Decimal("93.80"),
+        checkerName="复核周磊",
+    )
 
     run2 = CookRun.objects.create(
         hearth=h2,
@@ -123,6 +144,28 @@ def ensure_seed_data():
         sampledAt=now - timezone.timedelta(hours=2),
         softPointC=Decimal("93.50"),
         samplerName="值守阿萍",
+    )
+    # 三条连续复核、相邻差 ≤4℃、时刻均晚于最新探针 —— 演示达标链
+    SoftPointRecheck.objects.create(
+        run=run3,
+        recheckNo=1,
+        checkedAt=now - timezone.timedelta(hours=1, minutes=30),
+        softPointC=Decimal("93.00"),
+        checkerName="复核阿萍",
+    )
+    SoftPointRecheck.objects.create(
+        run=run3,
+        recheckNo=2,
+        checkedAt=now - timezone.timedelta(hours=1),
+        softPointC=Decimal("92.40"),
+        checkerName="复核阿萍",
+    )
+    SoftPointRecheck.objects.create(
+        run=run3,
+        recheckNo=3,
+        checkedAt=now - timezone.timedelta(minutes=30),
+        softPointC=Decimal("91.80"),
+        checkerName="复核阿萍",
     )
 
     CookRun.objects.create(

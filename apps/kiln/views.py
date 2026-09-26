@@ -8,8 +8,14 @@ from django.template.loader import render_to_string
 from django.utils import timezone
 from django.views.decorators.http import require_http_methods, require_POST
 
-from .forms import OpenCookRunForm, PhaseChangeForm, ResinLotForm, SoftPointProbeForm
-from .models import CookRun, FireHearth, ResinLot
+from .forms import (
+    OpenCookRunForm,
+    PhaseChangeForm,
+    ResinLotForm,
+    SoftPointProbeForm,
+    SoftPointRecheckForm,
+)
+from .models import CookRun, FireHearth, ResinLot, SoftPointRecheck
 from .services.floor_rules import change_hearth_phase
 
 
@@ -48,14 +54,18 @@ def _board_context():
 def _drawer_context(hearth):
     open_run = hearth.open_run()
     probes = []
+    rechecks = []
     if open_run:
         probes = list(open_run.probes.order_by("-sampledAt", "-id"))
+        rechecks = list(open_run.rechecks.order_by("recheckNo", "id"))
     return {
         "hearth": hearth,
         "open_run": open_run,
         "probes": probes,
+        "rechecks": rechecks,
         "phase_form": PhaseChangeForm(hearth=hearth),
         "probe_form": SoftPointProbeForm() if open_run else None,
+        "recheck_form": SoftPointRecheckForm(run=open_run) if open_run else None,
         "open_run_form": OpenCookRunForm(hearth=hearth) if open_run is None else None,
     }
 
@@ -144,6 +154,40 @@ def add_probe(request, pk):
 
 @login_required
 @require_POST
+def add_recheck(request, pk):
+    hearth = get_object_or_404(FireHearth, pk=pk)
+    open_run = hearth.open_run()
+    if open_run is None:
+        messages.error(request, "没有进行中的值守，已收灶或未开灶的值守拒绝登记复核")
+        if _wants_htmx(request):
+            resp = render(request, "floor/_drawer.html", _drawer_context(hearth))
+            resp["HX-Trigger"] = "floor-refresh"
+            return resp
+        return redirect(f"/?hearth={pk}")
+
+    form = SoftPointRecheckForm(request.POST, run=open_run)
+    if form.is_valid():
+        recheck = form.save(commit=False)
+        recheck.run = open_run
+        recheck.save()
+        messages.success(
+            request, f"已登记复核 #{recheck.recheckNo} · {recheck.softPointC}℃"
+        )
+    else:
+        for errs in form.errors.values():
+            for e in errs:
+                messages.error(request, e)
+            break
+
+    if _wants_htmx(request):
+        resp = render(request, "floor/_drawer.html", _drawer_context(hearth))
+        resp["HX-Trigger"] = "floor-refresh"
+        return resp
+    return redirect(f"/?hearth={pk}")
+
+
+@login_required
+@require_POST
 def open_run(request, pk):
     hearth = get_object_or_404(FireHearth, pk=pk)
     form = OpenCookRunForm(request.POST, hearth=hearth)
@@ -209,3 +253,11 @@ def resin_lot_feed(request):
 
     lots = ResinLot.objects.all()[:40]
     return render(request, "resin/feed.html", {"lots": lots, "form": form})
+
+
+@login_required
+def recheck_feed(request):
+    rechecks = SoftPointRecheck.objects.select_related(
+        "run__hearth"
+    ).order_by("-checkedAt", "-id")[:60]
+    return render(request, "floor/recheck_feed.html", {"rechecks": rechecks})
