@@ -11,4 +11,5 @@ urlpatterns = [
     path("hearth/<int:pk>/open-run/", views.open_run, name="open_run"),
     path("hearth/<int:pk>/close-run/", views.close_run, name="close_run"),
     path("resin-lots/", views.resin_lot_feed, name="resin_lot_feed"),
+    path("rechecks/", views.recheck_feed, name="recheck_feed"),
 ]

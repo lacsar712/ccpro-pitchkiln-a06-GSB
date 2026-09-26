@@ -1,7 +1,7 @@
 from django import forms
 from django.utils import timezone
 
-from .models import CookRun, FireHearth, ResinLot, SoftPointProbe
+from .models import CookRun, FireHearth, ResinLot, SoftPointProbe, SoftPointRecheck
 from .services.floor_rules import assert_can_enter_drawing
 
 
@@ -73,6 +73,39 @@ class SoftPointProbeForm(forms.ModelForm):
         ]
         if not self.is_bound and not (self.instance and self.instance.pk):
             self.initial["sampledAt"] = timezone.localtime().strftime("%Y-%m-%dT%H:%M")
+
+
+class SoftPointRecheckForm(forms.ModelForm):
+    class Meta:
+        model = SoftPointRecheck
+        fields = ["run", "recheckNo", "softPointC", "checkedAt", "checkerName"]
+        widgets = {
+            "run": forms.Select(attrs={"class": "field"}),
+            "recheckNo": forms.NumberInput(attrs={"class": "field", "min": "1"}),
+            "softPointC": forms.NumberInput(attrs={"class": "field", "step": "0.01"}),
+            "checkedAt": forms.DateTimeInput(
+                attrs={"class": "field", "type": "datetime-local"},
+                format="%Y-%m-%dT%H:%M",
+            ),
+            "checkerName": forms.TextInput(attrs={"class": "field"}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # 仅未收灶的值守可登记复核（模型 clean 再做一层兜底）。
+        self.fields["run"].queryset = (
+            CookRun.objects.filter(closedAt__isnull=True)
+            .select_related("hearth", "resinLot")
+            .order_by("hearth__lane", "hearth__tag")
+        )
+        self.fields["run"].empty_label = "— 选择未收灶值守 —"
+        self.fields["checkedAt"].input_formats = [
+            "%Y-%m-%dT%H:%M",
+            "%Y-%m-%d %H:%M:%S",
+            "%Y-%m-%d %H:%M",
+        ]
+        if not self.is_bound and not (self.instance and self.instance.pk):
+            self.initial["checkedAt"] = timezone.localtime().strftime("%Y-%m-%dT%H:%M")
 
 
 class OpenCookRunForm(forms.ModelForm):

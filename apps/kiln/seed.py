@@ -3,7 +3,7 @@ from decimal import Decimal
 from django.contrib.auth import get_user_model
 from django.utils import timezone
 
-from .models import CookRun, FireHearth, ResinLot, SoftPointProbe
+from .models import CookRun, FireHearth, ResinLot, SoftPointProbe, SoftPointRecheck
 
 
 def ensure_seed_data():
@@ -123,6 +123,22 @@ def ensure_seed_data():
         sampledAt=now - timezone.timedelta(hours=2),
         softPointC=Decimal("93.50"),
         samplerName="值守阿萍",
+    )
+    # 软化复核链演示：仅此一值守有复核，且仅两条 —— 链长不足三条，
+    # 重新切入出胶会被复核门槛挡下，补登 #3 后才放行并落针。
+    SoftPointRecheck.objects.create(
+        run=run3,
+        recheckNo=1,
+        softPointC=Decimal("92.80"),
+        checkedAt=now - timezone.timedelta(hours=1, minutes=30),
+        checkerName="复核阿萍",
+    )
+    SoftPointRecheck.objects.create(
+        run=run3,
+        recheckNo=2,
+        softPointC=Decimal("91.60"),
+        checkedAt=now - timezone.timedelta(hours=1),
+        checkerName="复核阿萍",
     )
 
     CookRun.objects.create(

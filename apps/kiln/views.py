@@ -8,9 +8,15 @@ from django.template.loader import render_to_string
 from django.utils import timezone
 from django.views.decorators.http import require_http_methods, require_POST
 
-from .forms import OpenCookRunForm, PhaseChangeForm, ResinLotForm, SoftPointProbeForm
-from .models import CookRun, FireHearth, ResinLot
-from .services.floor_rules import change_hearth_phase
+from .forms import (
+    OpenCookRunForm,
+    PhaseChangeForm,
+    ResinLotForm,
+    SoftPointProbeForm,
+    SoftPointRecheckForm,
+)
+from .models import CookRun, FireHearth, ResinLot, SoftPointRecheck
+from .services.floor_rules import change_hearth_phase, consecutive_recheck_chain
 
 
 def _wants_htmx(request):
@@ -48,12 +54,18 @@ def _board_context():
 def _drawer_context(hearth):
     open_run = hearth.open_run()
     probes = []
+    rechecks = []
+    recheck_chain_len = 0
     if open_run:
         probes = list(open_run.probes.order_by("-sampledAt", "-id"))
+        rechecks = list(open_run.rechecks.order_by("recheckNo"))
+        recheck_chain_len = len(consecutive_recheck_chain(open_run))
     return {
         "hearth": hearth,
         "open_run": open_run,
         "probes": probes,
+        "rechecks": rechecks,
+        "recheck_chain_len": recheck_chain_len,
         "phase_form": PhaseChangeForm(hearth=hearth),
         "probe_form": SoftPointProbeForm() if open_run else None,
         "open_run_form": OpenCookRunForm(hearth=hearth) if open_run is None else None,
@@ -209,3 +221,26 @@ def resin_lot_feed(request):
 
     lots = ResinLot.objects.all()[:40]
     return render(request, "resin/feed.html", {"lots": lots, "form": form})
+
+
+@login_required
+@require_http_methods(["GET", "POST"])
+def recheck_feed(request):
+    if request.method == "POST":
+        form = SoftPointRecheckForm(request.POST)
+        if form.is_valid():
+            recheck = form.save()
+            messages.success(
+                request,
+                f"已登记复核 #{recheck.recheckNo} · {recheck.softPointC}℃",
+            )
+            return redirect("recheck_feed")
+    else:
+        form = SoftPointRecheckForm()
+
+    rechecks = SoftPointRecheck.objects.select_related(
+        "run__hearth", "run__resinLot"
+    )[:40]
+    return render(
+        request, "recheck/feed.html", {"rechecks": rechecks, "form": form}
+    )

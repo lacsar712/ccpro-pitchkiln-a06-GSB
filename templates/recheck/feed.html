@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}软化复核{% endblock %}
+{% block content %}
+<section class="feed-head">
+  <div>
+    <h1>软化复核</h1>
+    <p class="board-sub">复核号从 1 起连续 ≥3 条 · 相邻复核软化点差 ≤4℃ · 最新复核须晚于最新探针</p>
+  </div>
+  <a class="back-link" href="{% url 'home' %}">← 回值守看板</a>
+</section>
+
+<div class="feed-layout">
+  <form method="post" class="lot-intake stack-form">
+    {% csrf_token %}
+    <h2>登记复核</h2>
+    <p class="hint">仅未收灶的值守可登记；同一值守的复核号唯一，从 1 起编。</p>
+    {{ form.as_p }}
+    <button type="submit" class="btn-ember">写入复核</button>
+  </form>
+
+  <ol class="lot-feed">
+    {% for r in rechecks %}
+    <li class="lot-card">
+      <div class="lot-code mono">{{ r.run.hearth.tag }} · 复核 #{{ r.recheckNo }}</div>
+      <div class="lot-place">{{ r.run.resinLot.lotCode }} — {{ r.checkerName }}</div>
+      <div class="lot-meta">
+        <span class="mono">{{ r.softPointC }} ℃</span>
+        <span>{{ r.checkedAt|date:"Y-m-d H:i" }}</span>
+      </div>
+    </li>
+    {% empty %}
+    <li class="lot-card empty">暂无复核记录</li>
+    {% endfor %}
+  </ol>
+</div>
+{% endblock %}

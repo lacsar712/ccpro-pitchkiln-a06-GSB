@@ -1,3 +1,5 @@
+from django.core.exceptions import ValidationError
+from django.core.validators import MinValueValidator
 from django.db import models
 
 
@@ -107,3 +109,42 @@ class SoftPointProbe(models.Model):
 
     def __str__(self):
         return f"{self.softPointC}℃ by {self.samplerName}"
+
+
+class SoftPointRecheck(models.Model):
+    """软化复核：出胶前对软化点的连续复核链，按值守归集。"""
+
+    run = models.ForeignKey(
+        CookRun,
+        on_delete=models.CASCADE,
+        related_name="rechecks",
+        verbose_name="值守",
+    )
+    recheckNo = models.PositiveIntegerField(
+        "复核号", validators=[MinValueValidator(1)]
+    )
+    softPointC = models.DecimalField("复核软化点(℃)", max_digits=6, decimal_places=2)
+    checkedAt = models.DateTimeField("复核时刻")
+    checkerName = models.CharField("复核人", max_length=80)
+
+    class Meta:
+        ordering = ["-checkedAt", "-id"]
+        verbose_name = "软化复核"
+        verbose_name_plural = "软化复核"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["run", "recheckNo"],
+                name="uniq_recheck_no_per_run",
+                violation_error_message="同一值守的复核号必须唯一。",
+            )
+        ]
+
+    def __str__(self):
+        return f"#{self.recheckNo} {self.softPointC}℃ by {self.checkerName}"
+
+    def clean(self):
+        super().clean()
+        if self.run_id and self.run.closedAt is not None:
+            raise ValidationError(
+                {"run": "已收灶的值守拒绝登记复核，仅未收灶值守可写。"}
+            )
